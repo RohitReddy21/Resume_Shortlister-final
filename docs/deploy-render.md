@@ -1,12 +1,11 @@
-# Deploy ResumeParser.AI on Render
+# Deploy ResumeParser.AI backend on Render
 
-This app deploys as three Render resources:
+This setup deploys only the FastAPI backend on Render. Deploy the Next.js frontend separately on Vercel with `frontend` as the project root.
 
-- `resumeparser-web`: Next.js frontend
 - `resumeparser-api`: FastAPI backend
 - `resumeparser-db`: managed Postgres database
 
-The repository includes `render.yaml`, `frontend/Dockerfile`, and `backend/Dockerfile` so Render can create the stack from a GitHub repo.
+The repository includes `render.yaml` and `backend/Dockerfile` so Render can create the backend stack from a GitHub repo.
 
 ## 1. Push the repo
 
@@ -22,14 +21,21 @@ When prompted for environment variables, set:
 ADMIN_PASSWORD=<your secure admin password>
 ```
 
-`SECRET_KEY` is generated automatically. `DATABASE_URL`, `FRONTEND_HOSTNAME`, and `NEXT_PUBLIC_API_HOSTNAME` are wired between the services by the blueprint.
+`SECRET_KEY` is generated automatically. `DATABASE_URL` is wired from the managed Postgres database.
+
+After Vercel gives you the frontend URL, set these on the Render backend service and redeploy:
+
+```text
+FRONTEND_URL=https://your-vercel-app.vercel.app
+FRONTEND_HOSTNAME=your-vercel-app.vercel.app
+```
 
 ## 3. Check deploy order
 
 After the first deploy:
 
 1. Open the backend service and confirm `/health` returns `{"status":"ok"}`.
-2. Open the frontend service.
+2. Open the Vercel frontend.
 3. Log in with:
 
 ```text
@@ -57,15 +63,14 @@ GOOGLE_REDIRECT_URI=https://<backend-host>/api/v1/auth/google/callback
 FRONTEND_URL=https://<custom-frontend-domain>
 ```
 
-If you use a custom frontend domain, set `FRONTEND_URL` on the backend service to that full URL so CORS allows it.
+If you use a custom frontend domain, set `FRONTEND_URL` on the backend service to that full URL and `FRONTEND_HOSTNAME` to the bare hostname so CORS allows it.
 
 ## Local production smoke test
 
 From the repo root:
 
 ```powershell
-docker build -t resumeparser-api ./backend
-docker build -t resumeparser-web ./frontend
+docker build -f backend/Dockerfile -t resumeparser-api .
 ```
 
 Run the backend with a Postgres `DATABASE_URL` and then build/run the frontend with either:
