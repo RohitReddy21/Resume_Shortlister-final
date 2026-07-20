@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -7,6 +8,8 @@ from sqlalchemy.orm import Session
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.core.security import get_password_hash, verify_password
+
+logger = logging.getLogger(__name__)
 
 
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
@@ -35,10 +38,16 @@ def create_user(db: Session, email: str, full_name: str, password: Optional[str]
 
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
     user = get_user_by_email(db, email)
-    if not user or not user.password_hash:
+    if not user:
+        logger.warning(f"User not found: {email}")
+        return None
+    if not user.password_hash:
+        logger.warning(f"User has no password hash: {email}")
         return None
     if not verify_password(password, user.password_hash):
+        logger.warning(f"Password verification failed for user: {email}")
         return None
+    logger.info(f"Password verification successful for user: {email}")
     return user
 
 

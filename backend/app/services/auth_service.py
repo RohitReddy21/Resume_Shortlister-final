@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -22,6 +23,7 @@ from app.models.user import User
 from app.services.email_service import EmailService
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -37,9 +39,12 @@ class AuthService:
 
     @staticmethod
     def login(db: Session, email: str, password: str) -> tuple[User, TokenResponse]:
+        logger.info(f"Login attempt for email: {email}")
         user = authenticate_user(db, email, password)
         if not user:
+            logger.warning(f"Authentication failed for email: {email}")
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+        logger.info(f"Authentication successful for user: {user.email} (id={user.id})")
         return user, AuthService._issue_tokens(db, user)
 
     @staticmethod
@@ -145,6 +150,7 @@ class AuthService:
         refresh_token = create_refresh_token(subject=user.id, role=user.role)
         expires_at = datetime.now(timezone.utc) + timedelta(days=7)
         create_refresh_token_record(db, user.id, refresh_token, expires_at)
+        logger.info(f"Tokens issued for user: {user.email} (id={user.id})")
         return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
     @staticmethod

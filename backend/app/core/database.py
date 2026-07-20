@@ -1,9 +1,11 @@
+import logging
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.core.config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 # Support SQLite for local development (no Docker) and Postgres in production.
 engine_kwargs = {"pool_pre_ping": True}
@@ -85,6 +87,38 @@ def _run_schema_compatibility_migrations() -> None:
                 )
 
 
+def _ensure_admin_user() -> None:
+    """Ensure an admin user exists based on environment variables."""
+    from app.crud.user import get_user_by_email, create_user
+    from app.core.security import get_password_hash
+
+    admin_email = settings.admin_email
+    admin_password = settings.admin_password
+
+    if not admin_email or not admin_password:
+        logger.warning("ADMIN_EMAIL or ADMIN_PASSWORD not set. Skipping admin user creation.")
+        return
+
+    db = SessionLocal()
+    try:
+        existing_admin = get_user_by_email(db, admin_email)
+        if existing_admin:
+            logger.info(f"Admin user already exists: {admin_email}")
+            return
+
+        admin_user = create_user(
+            db,
+            email=admin_email,
+            full_name="Administrator",
+            password=admin_password,
+            role="Admin",
+            auth_provider="local"
+        )
+        logger.info(f"Created admin user: {admin_email} (id={admin_user.id})")
+    finally:
+        db.close()
+
+
 def init_db() -> None:
     # Import models to ensure they are registered on Base before create_all
     from app.models.user import User
@@ -118,3 +152,4 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     _run_schema_compatibility_migrations()
+    _ensure_admin_user()
