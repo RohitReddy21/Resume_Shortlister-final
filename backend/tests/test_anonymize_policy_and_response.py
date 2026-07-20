@@ -30,10 +30,10 @@ def test_maskpolicy_defaults_and_bounds():
 
 
 def test_taskresponse_serialization():
-    tr = TaskResponse(task_id="abc-123", status="enqueued")
+    tr = TaskResponse(task_id="abc-123", status="completed")
     d = tr.model_dump()
     assert d["task_id"] == "abc-123"
-    assert d["status"] == "enqueued"
+    assert d["status"] == "completed"
 
     j = tr.model_dump_json()
     assert "abc-123" in j

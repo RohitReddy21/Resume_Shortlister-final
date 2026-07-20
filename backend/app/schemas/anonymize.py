@@ -34,11 +34,11 @@ class MaskPolicy(BaseModel):
 
 class TaskResponse(BaseModel):
     task_id: str
-    status: str = Field("enqueued")
+    status: str = Field("completed")
 
     model_config = ConfigDict(
         json_schema_extra={
-            "example": {"task_id": "b7f3c9e0-12ab-4cd3-9ef0-123456789abc", "status": "enqueued"}
+            "example": {"task_id": "b7f3c9e0-12ab-4cd3-9ef0-123456789abc", "status": "completed"}
         }
     )
 

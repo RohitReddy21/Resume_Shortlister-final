@@ -5,7 +5,6 @@ from typing import Dict, List
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from celery.result import AsyncResult
 
 from app.api.deps import get_db
 from app.core.config import get_settings
@@ -13,7 +12,6 @@ from app.core.paths import get_resume_dir
 from app.models.ats import Application, Candidate, Resume, ResumeVersion
 from app.services.parser.structured import build_structured_resume
 from app.services.parser.tasks import _sync_candidate_profile_from_structured, parse_resume_task
-from celery_app import celery
 
 settings = get_settings()
 router = APIRouter()
@@ -56,10 +54,6 @@ class StructuredResumePayload(BaseModel):
     experience: List[StructuredExperiencePayload] = Field(default_factory=list)
     education: List[StructuredEducationPayload] = Field(default_factory=list)
     certifications: List[str] = Field(default_factory=list)
-
-
-def _use_celery_queue() -> bool:
-    return os.getenv("RESUME_PARSER_USE_CELERY", "").lower() in {"1", "true", "yes"}
 
 
 def _save_upload_stream(upload: UploadFile, dest_path: str) -> int:
@@ -136,12 +130,9 @@ def _load_current_parsed_resume(resume: Resume) -> dict:
         raise HTTPException(status_code=500, detail="Could not deserialize parsed resume JSON") from exc
 
 
-def _parse_inline(resume: Resume, candidate: Candidate, dest_path: str, file_name: str, queue_error: Exception | None = None) -> Dict:
+def _parse_inline(resume: Resume, candidate: Candidate, dest_path: str, file_name: str) -> Dict:
     try:
-        result = parse_resume_task.run(resume.id, candidate.id, dest_path)
-        warning = "Resume was parsed inline."
-        if queue_error is not None:
-            warning = "Celery broker was unavailable, so the resume was parsed inline."
+        result = parse_resume_task(resume.id, candidate.id, dest_path)
 
         return {
             "upload_id": resume.id,
@@ -152,13 +143,9 @@ def _parse_inline(resume: Resume, candidate: Candidate, dest_path: str, file_nam
             "status": "completed",
             "parse_mode": "inline",
             "result": result,
-            "warning": warning,
+            "warning": "Resume was parsed inline.",
         }
     except Exception as parse_exc:
-        warning = "Resume was uploaded, but inline parsing failed."
-        if queue_error is not None:
-            warning = f"Resume was uploaded, but parsing could not start: {queue_error}"
-
         return {
             "upload_id": resume.id,
             "resume_id": resume.id,
@@ -167,7 +154,7 @@ def _parse_inline(resume: Resume, candidate: Candidate, dest_path: str, file_nam
             "saved_path": dest_path,
             "status": "uploaded",
             "parse_mode": "not_parsed",
-            "warning": warning,
+            "warning": "Resume was uploaded, but inline parsing failed.",
             "error": str(parse_exc),
         }
 
@@ -209,22 +196,7 @@ async def upload_resume(
     db.commit()
     db.refresh(resume)
 
-    if not _use_celery_queue():
-        return _parse_inline(resume, candidate, dest_path, file.filename)
-
-    try:
-        task_result = parse_resume_task.delay(resume.id, candidate.id, dest_path)
-        return {
-            "upload_id": resume.id,
-            "resume_id": resume.id,
-            "task_id": task_result.id,
-            "file_name": file.filename,
-            "saved_path": dest_path,
-            "status": "processing",
-            "parse_mode": "celery",
-        }
-    except Exception as queue_exc:
-        return _parse_inline(resume, candidate, dest_path, file.filename, queue_exc)
+    return _parse_inline(resume, candidate, dest_path, file.filename)
 
 
 @router.post("/resumes/{resume_id}/parse")
@@ -414,13 +386,10 @@ async def list_structured_resumes(db: Session = Depends(get_db)) -> List[Dict]:
 
 @router.get("/resumes/status/{task_id}")
 async def get_parse_status(task_id: str) -> Dict:
-    result = AsyncResult(task_id, app=celery)
-    response = {"task_id": task_id, "status": result.status}
-    if result.successful():
-        response["result"] = result.result
-    elif result.failed():
-        response["error"] = str(result.result)
-    return response
+    raise HTTPException(
+        status_code=410,
+        detail="Background parse task status is unavailable because this deployment parses resumes inline.",
+    )
 
 
 @router.get("/resumes/parsed/{upload_id}")

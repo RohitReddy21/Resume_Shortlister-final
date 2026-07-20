@@ -1,7 +1,6 @@
 import os
 from typing import Dict
 
-from celery_app import celery
 from app.core.database import SessionLocal
 from app.core.paths import get_resume_dir
 from app.models.ats import Resume, ResumeVersion
@@ -25,7 +24,6 @@ def _find_resume_file(resume_id: str) -> str | None:
     return None
 
 
-@celery.task(name="anonymizer.anonymize_resume_task")
 def anonymize_resume_task(resume_id: str, mask_policy: Dict) -> Dict:
     db = SessionLocal()
     try:

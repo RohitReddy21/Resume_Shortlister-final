@@ -30,8 +30,6 @@ services:
         sync: false
       - key: ATS_SHORTLIST_THRESHOLD
         value: "70"
-      - key: RESUME_PARSER_USE_CELERY
-        value: "false"
     disk:
       name: resume-uploads
       mountPath: /data

@@ -219,15 +219,4 @@ C:\Users\PC\anaconda3\python.exe scripts\seed_admin.py --email admin@example.com
 
 Auth, dashboard, jobs, and ATS score display can run with the backend and frontend only.
 
-Resume upload parsing works locally without Redis. By default, `POST /api/v1/resumes/upload` saves the file and parses it inline so the frontend upload flow works with only the FastAPI backend running.
-
-Queued parsing is optional. To use Celery with Redis, set this before starting the backend:
-
-```powershell
-$env:RESUME_PARSER_USE_CELERY="true"
-```
-
-Then start Redis and a Celery worker in addition to the backend and frontend.
-
-- Default Redis URL: `redis://localhost:6379/0`
-- Celery app: `backend/celery_app.py`
+Resume upload parsing works locally without Redis or background workers. `POST /api/v1/resumes/upload` saves the file and parses it inline, so the frontend upload flow works with only the FastAPI backend running.

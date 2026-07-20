@@ -14,7 +14,7 @@ import json
 router = APIRouter()
 
 
-@router.post("/resumes/{resume_id}/mask", response_model=TaskResponse, status_code=202)
+@router.post("/resumes/{resume_id}/mask", response_model=TaskResponse)
 async def mask_resume(resume_id: str, mask_policy: MaskPolicy, db: Session = Depends(get_db)) -> TaskResponse:
     resume = db.get(Resume, resume_id)
     if resume is None:
@@ -25,8 +25,11 @@ async def mask_resume(resume_id: str, mask_policy: MaskPolicy, db: Session = Dep
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
-    task = anonymize_resume_task.delay(resume_id, mask_policy.model_dump())
-    return TaskResponse(task_id=task.id, status="enqueued")
+    try:
+        result = anonymize_resume_task(resume_id, mask_policy.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return TaskResponse(task_id=result["resume_id"], status="completed")
 
 
 @router.get("/resumes/masked/{resume_id}", response_model=MaskedMetadata)

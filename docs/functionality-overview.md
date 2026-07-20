@@ -10,8 +10,7 @@ This document describes the functionality implemented so far, how the frontend a
 | Backend | FastAPI, SQLAlchemy, Pydantic | API endpoints, auth, jobs, resume parsing, anonymization, ATS scoring |
 | Local DB | SQLite by default | Local development data storage in `backend/dev.db` |
 | Optional DB | PostgreSQL | Supported through `DATABASE_URL` |
-| Background jobs | Celery | Optional queued resume parsing and anonymization tasks |
-| Optional broker | Redis | Celery broker/result backend |
+| Resume processing | Inline FastAPI service functions | Resume parsing and anonymization run in-process |
 
 ## High-Level Architecture
 
@@ -29,9 +28,6 @@ FastAPI backend: http://localhost:8000
   | SQLAlchemy models
   v
 SQLite dev DB: backend/dev.db
-
-Optional async flow when Celery is enabled:
-FastAPI -> Celery task -> parser/anonymizer service -> DB/filesystem
 ```
 
 The backend enables CORS for `http://localhost:3000` in `backend/app/main.py`, so the browser can call the API during local development.
@@ -323,7 +319,7 @@ Implemented frontend API functions:
 | `deleteJob()` | `DELETE /api/v1/jobs/{job_id}` | Delete a job from the frontend list |
 | `listResumes()` | `GET /api/v1/resumes` | Load uploaded resume records |
 | `uploadResume()` | `POST /api/v1/resumes/upload` | Upload one resume file with multipart form data |
-| `getResumeStatus()` | `GET /api/v1/resumes/status/{task_id}` | Check Celery parse status when queued parsing is enabled |
+| `getResumeStatus()` | `GET /api/v1/resumes/status/{task_id}` | Legacy endpoint; inline deployments return 410 |
 | `getParsedResume()` | `GET /api/v1/resumes/parsed/{upload_id}` | Load parsed resume JSON |
 | `createApplication()` | `POST /api/v1/applications` | Attach a candidate/resume to a job pipeline |
 | `listNotifications()` | `GET /api/v1/notifications` | Load current-user notifications |
@@ -551,14 +547,12 @@ How it works:
 3. Rejects files larger than 20 MB.
 4. Uses the provided candidate, or creates a placeholder candidate.
 5. Creates a `Resume` row.
-6. Parses inline by default for local development.
-7. If `RESUME_PARSER_USE_CELERY=true`, tries to enqueue `parse_resume_task` with Celery.
-8. Returns upload ID, resume ID, task ID when queued, file name, saved path, parse mode, and status.
+6. Parses inline during the upload request.
+7. Returns upload ID, resume ID, file name, saved path, parse mode, and status.
 
 Parse modes:
 
 - `inline`: parsed during the upload request. This is the default local mode.
-- `celery`: queued to Redis/Celery because `RESUME_PARSER_USE_CELERY=true`.
 - `not_parsed`: file was saved, but parsing failed.
 
 ### List Uploaded Resumes
@@ -578,10 +572,8 @@ Endpoint: `GET /api/v1/resumes/status/{task_id}`
 
 How it works:
 
-- Uses Celery `AsyncResult`.
-- Returns task status.
-- If successful, includes task result.
-- If failed, includes error text.
+- Inline deployments do not create background task IDs.
+- Returns `410 Gone` with a message explaining that parsing happens inline.
 
 ### Get Parsed Resume
 
@@ -614,8 +606,7 @@ Expected parsed fields include:
 Notes:
 
 - Some parser dependencies are heavy and optional.
-- Resume upload parsing does not require Celery/Redis in local mode.
-- Celery/Redis are only needed for queued parsing when `RESUME_PARSER_USE_CELERY=true`.
+- Resume upload parsing does not require Redis or background workers.
 
 ## ATS Scoring Functionality
 
@@ -701,7 +692,7 @@ Endpoint: `POST /api/v1/resumes/{resume_id}/mask`
 
 What it does:
 
-- Enqueues a Celery task to anonymize a resume.
+- Runs anonymization inline for the requested resume.
 - Supports text redaction/pseudonymization and image masking.
 
 Mask policy fields:
@@ -717,8 +708,8 @@ How it works:
 
 1. Checks the resume exists.
 2. Validates mask policy.
-3. Enqueues `anonymize_resume_task`.
-4. Returns task ID and status.
+3. Runs `anonymize_resume_task` directly.
+4. Returns resume ID and completion status.
 
 ### Get Masked Metadata
 
@@ -800,33 +791,6 @@ Production database:
 - Set `DATABASE_URL` in `backend/.env`.
 - Example: `postgresql+psycopg2://user:password@host:port/db`
 
-## Background Jobs
-
-File: `backend/celery_app.py`
-
-Celery defaults:
-
-- Broker: `redis://localhost:6379/0`
-- Result backend: same as broker
-
-Tasks:
-
-- `parser.parse_resume_task`
-- `anonymizer.anonymize_resume_task`
-
-When Celery is required:
-
-- Anonymizing/masking resumes.
-- Queued resume parsing when `RESUME_PARSER_USE_CELERY=true`.
-
-When Celery is not required:
-
-- Login/signup.
-- Dashboard shell.
-- Jobs API.
-- Resume upload and parsing in default local inline mode.
-- ATS score display if the resume has already been parsed and stored.
-
 ## Local Run and Troubleshooting
 
 Primary run guide:
@@ -897,7 +861,6 @@ Partially implemented or next candidates:
 - Add a full candidate directory API and candidate profile pages.
 - Display backend `confidence_score` and `score_breakdown` in the ATS score UI.
 - Add batch ATS scoring endpoint.
-- Add Redis/Celery run guide with exact Windows commands.
 - Add full Alembic migrations instead of startup compatibility patches.
 - Add production-grade email provider setup.
 - Complete Google OAuth configuration.

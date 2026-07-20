@@ -3,7 +3,6 @@ import re
 import uuid
 from typing import Any
 
-from celery_app import celery
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -616,7 +615,6 @@ def _create_version(db: Session, resume: Resume, parsed: dict[str, Any]) -> Resu
     return version
 
 
-@celery.task(name="parser.parse_resume_task")
 def parse_resume_task(resume_id: str, candidate_id: str | None, file_path: str) -> dict[str, Any]:
     db = SessionLocal()
     try:
