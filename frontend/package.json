@@ -1,0 +1,29 @@
+{
+  "name": "resumeparser-ai-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "15.3.3",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "class-variance-authority": "^0.6.0",
+    "clsx": "^2.1.0",
+    "lucide-react": "^0.468.0",
+    "tailwind-merge": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2"
+  }
+}

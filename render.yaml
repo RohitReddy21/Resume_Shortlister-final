@@ -1,0 +1,59 @@
+services:
+  - type: web
+    name: resumeparser-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    healthCheckPath: /health
+    initialDeployHook: python scripts/seed_admin.py
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: API_V1_PREFIX
+        value: /api/v1
+      - key: DATABASE_URL
+        fromDatabase:
+          name: resumeparser-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FRONTEND_HOSTNAME
+        fromService:
+          type: web
+          name: resumeparser-web
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: UPLOAD_ROOT
+        value: /data/uploads
+      - key: ADMIN_EMAIL
+        value: admin@example.com
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ATS_SHORTLIST_THRESHOLD
+        value: "70"
+      - key: RESUME_PARSER_USE_CELERY
+        value: "false"
+    disk:
+      name: resume-uploads
+      mountPath: /data
+      sizeGB: 1
+
+  - type: web
+    name: resumeparser-web
+    runtime: docker
+    rootDir: frontend
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    plan: starter
+    envVars:
+      - key: NEXT_PUBLIC_API_HOSTNAME
+        fromService:
+          type: web
+          name: resumeparser-api
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+
+databases:
+  - name: resumeparser-db
+    databaseName: resumeparser
+    user: resumeparser

@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest-temp/
+.pytest-tmp-*/
+.mypy_cache/
+.ruff_cache/
+dev.db
+uploads/
+alembic/versions/__pycache__/

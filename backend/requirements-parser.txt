@@ -1,0 +1,7 @@
+# Optional / heavy parser dependencies
+pymupdf
+python-docx
+paddleocr
+spacy
+openai
+pillow
