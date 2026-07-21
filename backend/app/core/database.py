@@ -191,6 +191,19 @@ def init_db() -> None:
         ChatSession,
         ChatMessage,
     )
+    from app.models.ats.v3_models import (
+        InterviewFeedback,
+        InterviewPanelMember,
+        Offer,
+        OfferDocument,
+        JoiningRecord,
+        CandidateCommunication,
+        EmailTemplate,
+        CandidateDocumentVault,
+        CandidateChecklistItem,
+        RecruiterTask,
+        SystemReminder,
+    )
 
     Base.metadata.create_all(bind=engine)
     _run_schema_compatibility_migrations()

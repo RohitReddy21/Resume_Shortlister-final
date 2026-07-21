@@ -24,6 +24,17 @@ from app.models.ats import (
     Resume,
     ResumeVersion,
 )
+from app.models.ats.v3_models import (
+    InterviewFeedback,
+    InterviewPanelMember,
+    Offer,
+    OfferDocument,
+    JoiningRecord,
+    CandidateCommunication,
+    CandidateChecklistItem,
+    RecruiterTask,
+    CandidateDocumentVault,
+)
 from app.models.ats.activity_log import ActivityLog
 from app.models.user import User
 from app.schemas.pipeline import (
@@ -198,6 +209,16 @@ def _delete_resume_rows(db: Session, resume_ids: list[str]) -> None:
 def _delete_application_rows(db: Session, application_ids: list[str]) -> None:
     if not application_ids:
         return
+    # First get all interviews linked to these applications
+    interviews = db.query(Interview).filter(Interview.application_id.in_(application_ids)).all()
+    interview_ids = [i.id for i in interviews]
+    
+    # Delete interview-related models first
+    if interview_ids:
+        db.query(InterviewFeedback).filter(InterviewFeedback.interview_id.in_(interview_ids)).delete(synchronize_session=False)
+        db.query(InterviewPanelMember).filter(InterviewPanelMember.interview_id.in_(interview_ids)).delete(synchronize_session=False)
+    
+    # Then delete the rest
     db.query(Comment).filter(Comment.application_id.in_(application_ids)).delete(synchronize_session=False)
     db.query(Interview).filter(Interview.application_id.in_(application_ids)).delete(synchronize_session=False)
     db.query(ActivityLog).filter(ActivityLog.application_id.in_(application_ids)).delete(synchronize_session=False)
@@ -205,6 +226,31 @@ def _delete_application_rows(db: Session, application_ids: list[str]) -> None:
 
 
 def _delete_candidate_profile_rows(db: Session, candidate_id: str) -> None:
+    # First get all offers and interviews linked to this candidate
+    offers = db.query(Offer).filter(Offer.candidate_id == candidate_id).all()
+    offer_ids = [o.id for o in offers]
+    interviews = db.query(Interview).filter(Interview.candidate_id == candidate_id).all()
+    interview_ids = [i.id for i in interviews]
+    
+    # Delete offer-related models first
+    if offer_ids:
+        db.query(OfferDocument).filter(OfferDocument.offer_id.in_(offer_ids)).delete(synchronize_session=False)
+        db.query(JoiningRecord).filter(JoiningRecord.offer_id.in_(offer_ids)).delete(synchronize_session=False)
+    
+    # Delete interview-related models first
+    if interview_ids:
+        db.query(InterviewFeedback).filter(InterviewFeedback.interview_id.in_(interview_ids)).delete(synchronize_session=False)
+        db.query(InterviewPanelMember).filter(InterviewPanelMember.interview_id.in_(interview_ids)).delete(synchronize_session=False)
+    
+    # Delete all other candidate-linked v3 models
+    db.query(Offer).filter(Offer.candidate_id == candidate_id).delete(synchronize_session=False)
+    db.query(JoiningRecord).filter(JoiningRecord.candidate_id == candidate_id).delete(synchronize_session=False)
+    db.query(CandidateCommunication).filter(CandidateCommunication.candidate_id == candidate_id).delete(synchronize_session=False)
+    db.query(CandidateChecklistItem).filter(CandidateChecklistItem.candidate_id == candidate_id).delete(synchronize_session=False)
+    db.query(RecruiterTask).filter(RecruiterTask.candidate_id == candidate_id).delete(synchronize_session=False)
+    db.query(CandidateDocumentVault).filter(CandidateDocumentVault.candidate_id == candidate_id).delete(synchronize_session=False)
+    
+    # Delete original models
     db.query(CandidateSkill).filter(CandidateSkill.candidate_id == candidate_id).delete(synchronize_session=False)
     db.query(Experience).filter(Experience.candidate_id == candidate_id).delete(synchronize_session=False)
     db.query(Education).filter(Education.candidate_id == candidate_id).delete(synchronize_session=False)
