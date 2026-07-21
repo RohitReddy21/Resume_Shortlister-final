@@ -582,6 +582,10 @@ export interface Candidate {
   updated_at: string;
 }
 
+export async function listCandidates(): Promise<Candidate[]> {
+  return request('/api/v1/candidates');
+}
+
 export async function getCandidate(candidateId: string): Promise<Candidate> {
   return request(`/api/v1/candidates/${encodeURIComponent(candidateId)}`);
 }
@@ -590,7 +594,9 @@ export interface Interview {
   id: string;
   application_id?: string | null;
   candidate_id: string;
+  candidate_name?: string | null;
   job_id: string;
+  job_title?: string | null;
   interview_type?: string | null;
   scheduled_at: string;
   duration_minutes?: number | null;

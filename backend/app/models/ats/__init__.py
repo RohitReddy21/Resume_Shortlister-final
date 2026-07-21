@@ -23,3 +23,16 @@ from .skill import Skill
 from .user_company import UserCompany
 from .application import Application
 from .chat import ChatSession, ChatMessage
+from .v3_models import (
+    InterviewFeedback,
+    InterviewPanelMember,
+    Offer,
+    OfferDocument,
+    JoiningRecord,
+    CandidateCommunication,
+    EmailTemplate,
+    CandidateDocumentVault,
+    CandidateChecklistItem,
+    RecruiterTask,
+    SystemReminder,
+)
