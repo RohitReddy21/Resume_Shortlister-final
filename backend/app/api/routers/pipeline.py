@@ -1083,7 +1083,7 @@ def _interview_to_out(interview: Interview) -> InterviewOut:
     created_by_name = None
     if interview.created_by:
         created_by_name = interview.created_by.full_name
-    candidate_name = interview.candidate.full_name if interview.candidate else None
+    candidate_name = _candidate_display_name(interview.candidate) if interview.candidate else None
     job_title = interview.job.title if interview.job else None
     return InterviewOut(
         id=interview.id,
