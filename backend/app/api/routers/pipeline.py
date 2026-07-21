@@ -663,57 +663,74 @@ def move_application_stage(
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
+    # Guard against missing relationships (e.g., partially deleted candidate/job)
+    if not app.candidate:
+        raise HTTPException(status_code=422, detail="Application has no associated candidate")
+    if not app.job:
+        raise HTTPException(status_code=422, detail="Application has no associated job")
+
     old_stage = app.status
     new_stage = payload.stage
 
     if new_stage not in VALID_STAGES:
         raise HTTPException(status_code=400, detail=f"Invalid stage: {new_stage}")
 
-    _log_activity(
-        db,
-        action="stage_change",
-        details=f"Moved from {old_stage} to {new_stage}",
-        user_id=current_user.id,
-        application_id=app_id,
-        candidate_id=app.candidate_id,
-        job_id=app.job_id,
-    )
+    try:
+        _log_activity(
+            db,
+            action="stage_change",
+            details=f"Moved from {old_stage} to {new_stage}",
+            user_id=current_user.id,
+            application_id=app_id,
+            candidate_id=app.candidate_id,
+            job_id=app.job_id,
+        )
 
-    if new_stage == "Rejected":
-        result = _remove_rejected_application_data(db, app)
-        db.commit()
-        return result
+        if new_stage == "Rejected":
+            result = _remove_rejected_application_data(db, app)
+            db.commit()
+            return result
 
-    app.status = new_stage
-    if payload.pipeline_order is not None:
-        app.pipeline_order = payload.pipeline_order
+        app.status = new_stage
+        if payload.pipeline_order is not None:
+            app.pipeline_order = payload.pipeline_order
 
-    if old_stage != new_stage and app.candidate.user_id:
-        db.add(
-            Notification(
-                id=str(uuid.uuid4()),
-                user_id=app.candidate.user_id,
-                title="Application status updated",
-                message=f"Your application for {app.job.title} moved to {new_stage}.",
-                link=f"/dashboard/pipeline?job={app.job_id}&app={app.id}",
-                level="info",
+        if old_stage != new_stage and app.candidate.user_id:
+            db.add(
+                Notification(
+                    id=str(uuid.uuid4()),
+                    user_id=app.candidate.user_id,
+                    title="Application status updated",
+                    message=f"Your application for {app.job.title} moved to {new_stage}.",
+                    link=f"/dashboard/pipeline?job={app.job_id}&app={app.id}",
+                    level="info",
+                )
             )
+
+        db.commit()
+        db.refresh(app)
+
+        candidate_email = _candidate_display_email(app.candidate)
+        if candidate_email:
+            background_tasks.add_task(
+                EmailService.send_stage_change_email,
+                candidate_email=candidate_email,
+                candidate_name=_candidate_display_name(app.candidate) or "Candidate",
+                job_title=app.job.title,
+                new_stage=new_stage,
+            )
+
+        return _app_to_kanban_out(app)
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        db.rollback()
+        logging.getLogger(__name__).error(
+            "move_application_stage failed for app_id=%s new_stage=%s: %s",
+            app_id, new_stage, exc, exc_info=True
         )
-
-    db.commit()
-    db.refresh(app)
-
-    candidate_email = _candidate_display_email(app.candidate)
-    if candidate_email:
-        background_tasks.add_task(
-            EmailService.send_stage_change_email,
-            candidate_email=candidate_email,
-            candidate_name=_candidate_display_name(app.candidate) or "Candidate",
-            job_title=app.job.title,
-            new_stage=new_stage,
-        )
-
-    return _app_to_kanban_out(app)
+        raise HTTPException(status_code=500, detail=f"Failed to update stage: {exc}") from exc
 
 
 # ── Activity timeline ─────────────────────────────────────────────────────────

@@ -28,6 +28,10 @@ allowed_origins = list(
         [
             settings.frontend_url,
             f"https://{settings.frontend_hostname}" if settings.frontend_hostname else "",
+            # Production domains
+            "https://www.innotechninjas.com",
+            "https://innotechninjas.com",
+            # Local development
             "http://localhost:3000",
             "http://localhost:3001",
             "http://localhost:3002",
@@ -36,6 +40,8 @@ allowed_origins = list(
             "http://127.0.0.1:3001",
             "http://127.0.0.1:3002",
             "http://127.0.0.1:3003",
+            # Extra origins from environment (comma-separated)
+            *[o.strip() for o in settings.extra_cors_origins.split(",") if o.strip()],
         ]
     )
 )
