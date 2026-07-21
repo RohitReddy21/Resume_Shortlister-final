@@ -29,7 +29,7 @@ import {
   listJobs,
   type Interview,
   type Candidate,
-  type JobItem,
+  type Job,
 } from "@/lib/api";
 
 function StatusBadge({ status }: { status: string }) {
@@ -59,7 +59,7 @@ function StatusBadge({ status }: { status: string }) {
 export default function InterviewsPage() {
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [jobs, setJobs] = useState<JobItem[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -500,7 +500,7 @@ export default function InterviewsPage() {
                     <option value="">-- Choose Job --</option>
                     {jobs.map((j) => (
                       <option key={j.id} value={j.id}>
-                        {j.title} ({j.department || "General"})
+                        {j.title}
                       </option>
                     ))}
                   </select>
