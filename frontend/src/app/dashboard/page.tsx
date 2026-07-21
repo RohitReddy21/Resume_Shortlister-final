@@ -72,7 +72,7 @@ export default function DashboardPage() {
           <ListCard title="Recent candidates" subtitle="Latest scored applications">
             <div className="space-y-4">
               {(summary?.recent_candidates ?? []).length ? (
-                summary.recent_candidates.map((candidate) => (
+                (summary?.recent_candidates ?? []).map((candidate) => (
                   <ReusableListItem key={`${candidate.title}-${candidate.meta}`} {...candidate} />
                 ))
               ) : (
@@ -83,7 +83,7 @@ export default function DashboardPage() {
           <ListCard title="Hiring pipeline" subtitle="Live application stages">
             <div className="space-y-4">
               {(summary?.pipeline ?? []).length ? (
-                summary.pipeline.map((stage) => (
+                (summary?.pipeline ?? []).map((stage) => (
                   <PipelineCard key={stage.stage} {...stage} />
                 ))
               ) : (
@@ -98,7 +98,7 @@ export default function DashboardPage() {
           <ListCard title="Recent jobs" subtitle="Open roles from the backend">
             <div className="space-y-4">
               {(summary?.recent_jobs ?? []).length ? (
-                summary.recent_jobs.map((job) => (
+                (summary?.recent_jobs ?? []).map((job) => (
                   <ReusableListItem key={`${job.title}-${job.meta}`} {...job} />
                 ))
               ) : (
@@ -109,7 +109,7 @@ export default function DashboardPage() {
           <ListCard title="Recent activities" subtitle="Latest hiring actions">
             <div className="space-y-4">
               {(summary?.recent_activities ?? []).length ? (
-                summary.recent_activities.map((act) => (
+                (summary?.recent_activities ?? []).map((act) => (
                   <div key={act.id} className="flex gap-3 p-3 rounded-2xl bg-slate-950 border border-slate-80">
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
