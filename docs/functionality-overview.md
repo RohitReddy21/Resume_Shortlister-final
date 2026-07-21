@@ -732,6 +732,142 @@ How it works:
 - PDF image masking/blurring
 - DOCX image masking/blurring
 
+## Pipeline & Application Management
+
+File: `backend/app/api/routers/pipeline.py`
+
+### Candidate Management
+
+Endpoints:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/candidates` | Create candidate |
+| `GET` | `/api/v1/candidates` | List candidates |
+| `GET` | `/api/v1/candidates/{candidate_id}` | Get candidate details |
+| `PATCH` | `/api/v1/candidates/{candidate_id}` | Update candidate |
+| `DELETE` | `/api/v1/candidates/{candidate_id}` | Delete candidate |
+| `PATCH` | `/api/v1/candidates/{candidate_id}/compensation` | Update compensation details |
+
+Candidate fields:
+- `first_name`, `last_name`, `email`, `phone`
+- `headline`, `current_package`, `expected_package`, `notice_period`
+- `summary`
+
+### Application Management
+
+Endpoints:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/applications` | Create application with auto-ATS scoring |
+| `GET` | `/api/v1/applications` | List all applications |
+| `PATCH` | `/api/v1/applications/{app_id}` | Update application |
+| `DELETE` | `/api/v1/applications/{app_id}` | Delete application |
+| `PATCH` | `/api/v1/applications/{app_id}/stage` | Move application to new stage |
+
+Application stages:
+- Applied, Screening, Shortlisted, Interview, Technical, HR, Offer, Hired, Rejected
+
+Auto-short logic:
+- When creating an application, resume is automatically scored against the job
+- If score >= threshold (default 70%), automatically shortlisted
+- If score < threshold, placed in Screening
+- Match score, confidence, and reason stored on application
+
+### Pipeline Board
+
+Endpoint: `GET /api/v1/pipeline/{job_id}`
+
+Returns Kanban board with applications grouped by stage, including:
+- Candidate info (name, email, headline)
+- Match score and confidence
+- Comment count
+- Pipeline order for drag/drop
+
+### Activity Timeline
+
+Endpoint: `GET /api/v1/applications/{app_id}/activity`
+
+Returns chronological activity log for an application:
+- Stage changes
+- Comments
+- Automated shortlisting
+- User actions
+
+### Comments System
+
+Endpoints:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/applications/{app_id}/comments` | Add comment with @mentions |
+| `GET` | `/api/v1/applications/{app_id}/comments` | List comments |
+| `PATCH` | `/api/v1/applications/{app_id}/comments/{comment_id}` | Edit comment |
+| `DELETE` | `/api/v1/applications/{app_id}/comments/{comment_id}` | Delete comment |
+
+Comment features:
+- @mention support with user search autocomplete
+- In-app notifications for mentioned users
+- Activity logging for comments
+- Edit/delete permissions (author or Admin/Recruiter)
+
+### User Search
+
+Endpoint: `GET /api/v1/pipeline/users/search?q=...`
+
+Returns users matching query for @mention autocomplete.
+
+### Notifications
+
+Endpoint: `GET /api/v1/notifications`
+
+Returns in-app notifications for current user:
+- Application status updates
+- @mentions in comments
+- Stage change notifications
+
+### Dashboard Summary
+
+Endpoint: `GET /api/v1/dashboard/summary`
+
+Returns dashboard statistics (implementation varies).
+
+## Reports & Exports
+
+File: `backend/app/api/routers/reports.py`
+
+### ATS Screening Report
+
+Endpoints:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/reports/ats-screening/{job_id}` | Get ATS screening report JSON |
+| `GET` | `/api/v1/reports/ats-screening/{job_id}/excel` | Download ATS report as Excel |
+
+Report includes:
+- Job details
+- Resume scores against job
+- Matched/missing skills
+- Component scores
+- Recommendations
+
+### Resume Data Report
+
+Endpoint: `GET /api/v1/reports/resume-data/excel`
+
+Downloads Excel with parsed resume data, optionally filtered by job.
+
+### Masked Resume Downloads
+
+Endpoints:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/reports/masked-resumes/{resume_id}/pdf` | Download single masked resume PDF |
+| `GET` | `/api/v1/reports/masked-resumes/zip` | Download all masked resumes as ZIP |
+
 ## Admin Functionality
 
 File: `backend/app/api/routers/admin.py`

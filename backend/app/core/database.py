@@ -61,6 +61,46 @@ def _run_schema_compatibility_migrations() -> None:
                 connection.execute(text("ALTER TABLE candidates ADD COLUMN expected_package VARCHAR(100)"))
             if not has_column("candidates", "notice_period"):
                 connection.execute(text("ALTER TABLE candidates ADD COLUMN notice_period VARCHAR(100)"))
+            if not has_column("candidates", "address"):
+                connection.execute(text("ALTER TABLE candidates ADD COLUMN address VARCHAR(255)"))
+            if not has_column("candidates", "linkedin"):
+                connection.execute(text("ALTER TABLE candidates ADD COLUMN linkedin VARCHAR(255)"))
+            if not has_column("candidates", "github"):
+                connection.execute(text("ALTER TABLE candidates ADD COLUMN github VARCHAR(255)"))
+            if not has_column("candidates", "portfolio"):
+                connection.execute(text("ALTER TABLE candidates ADD COLUMN portfolio VARCHAR(255)"))
+            if not has_column("candidates", "current_company"):
+                connection.execute(text("ALTER TABLE candidates ADD COLUMN current_company VARCHAR(100)"))
+            if not has_column("candidates", "current_designation"):
+                connection.execute(text("ALTER TABLE candidates ADD COLUMN current_designation VARCHAR(100)"))
+            if not has_column("candidates", "total_experience"):
+                connection.execute(text("ALTER TABLE candidates ADD COLUMN total_experience VARCHAR(50)"))
+            if not has_column("candidates", "relevant_experience"):
+                connection.execute(text("ALTER TABLE candidates ADD COLUMN relevant_experience VARCHAR(50)"))
+            if not has_column("candidates", "preferred_location"):
+                connection.execute(text("ALTER TABLE candidates ADD COLUMN preferred_location VARCHAR(255)"))
+            if not has_column("candidates", "employment_type"):
+                connection.execute(text("ALTER TABLE candidates ADD COLUMN employment_type VARCHAR(50)"))
+
+        if "interviews" in table_names:
+            if not has_column("interviews", "interview_type"):
+                connection.execute(text("ALTER TABLE interviews ADD COLUMN interview_type VARCHAR(50)"))
+            if not has_column("interviews", "duration_minutes"):
+                connection.execute(text("ALTER TABLE interviews ADD COLUMN duration_minutes INTEGER"))
+            if not has_column("interviews", "duration_minutes_str"):
+                connection.execute(text("ALTER TABLE interviews ADD COLUMN duration_minutes_str VARCHAR(50)"))
+            if not has_column("interviews", "time_zone"):
+                connection.execute(text("ALTER TABLE interviews ADD COLUMN time_zone VARCHAR(100)"))
+            if not has_column("interviews", "meeting_link"):
+                connection.execute(text("ALTER TABLE interviews ADD COLUMN meeting_link VARCHAR(500)"))
+            if not has_column("interviews", "office_location"):
+                connection.execute(text("ALTER TABLE interviews ADD COLUMN office_location VARCHAR(255)"))
+            if not has_column("interviews", "interviewer_user_id"):
+                connection.execute(text("ALTER TABLE interviews ADD COLUMN interviewer_user_id VARCHAR"))
+            if not has_column("interviews", "rescheduled_from_id"):
+                connection.execute(text("ALTER TABLE interviews ADD COLUMN rescheduled_from_id VARCHAR"))
+            if not has_column("interviews", "created_by_id"):
+                connection.execute(text("ALTER TABLE interviews ADD COLUMN created_by_id VARCHAR"))
 
         if "activity_logs" in table_names:
             if not has_column("activity_logs", "application_id"):
@@ -148,6 +188,8 @@ def init_db() -> None:
         Session,
         Skill,
         UserCompany,
+        ChatSession,
+        ChatMessage,
     )
 
     Base.metadata.create_all(bind=engine)

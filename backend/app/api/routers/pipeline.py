@@ -1,9 +1,9 @@
 import json
 import os
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -42,6 +42,9 @@ from app.schemas.pipeline import (
     KanbanBoardOut,
     NotificationOut,
     PIPELINE_STAGES,
+    InterviewCreate,
+    InterviewUpdate,
+    InterviewOut,
 )
 from app.services.email_service import EmailService
 from app.services.ats.scoring import score_resume_against_job
@@ -261,10 +264,20 @@ def _candidate_to_dict(candidate: Candidate) -> dict[str, Any]:
         "email": _candidate_display_email(candidate),
         "raw_email": candidate.email,
         "phone": candidate.phone,
+        "address": candidate.address,
+        "linkedin": candidate.linkedin,
+        "github": candidate.github,
+        "portfolio": candidate.portfolio,
         "headline": candidate.headline,
+        "current_company": candidate.current_company,
+        "current_designation": candidate.current_designation,
+        "total_experience": candidate.total_experience,
+        "relevant_experience": candidate.relevant_experience,
         "current_package": candidate.current_package,
         "expected_package": candidate.expected_package,
         "notice_period": candidate.notice_period,
+        "preferred_location": candidate.preferred_location,
+        "employment_type": candidate.employment_type,
         "summary": candidate.summary,
         "resume_count": len(candidate.resumes) if candidate.resumes else 0,
         "application_count": len(candidate.applications) if candidate.applications else 0,
@@ -347,10 +360,20 @@ def create_candidate(payload: CandidateCreate, db: Session = Depends(get_db)) ->
         last_name=(payload.last_name or "").strip(),
         email=email,
         phone=payload.phone.strip() if payload.phone else None,
+        address=payload.address.strip() if payload.address else None,
+        linkedin=payload.linkedin.strip() if payload.linkedin else None,
+        github=payload.github.strip() if payload.github else None,
+        portfolio=payload.portfolio.strip() if payload.portfolio else None,
         headline=payload.headline.strip() if payload.headline else None,
+        current_company=payload.current_company.strip() if payload.current_company else None,
+        current_designation=payload.current_designation.strip() if payload.current_designation else None,
+        total_experience=payload.total_experience.strip() if payload.total_experience else None,
+        relevant_experience=payload.relevant_experience.strip() if payload.relevant_experience else None,
         current_package=payload.current_package.strip() if payload.current_package else None,
         expected_package=payload.expected_package.strip() if payload.expected_package else None,
         notice_period=payload.notice_period.strip() if payload.notice_period else None,
+        preferred_location=payload.preferred_location.strip() if payload.preferred_location else None,
+        employment_type=payload.employment_type.strip() if payload.employment_type else None,
         summary=payload.summary.strip() if payload.summary else None,
     )
     db.add(candidate)
@@ -903,11 +926,25 @@ def get_dashboard_summary(db: Session = Depends(get_db)) -> Any:
         for job in db.query(Job).order_by(Job.title.asc()).limit(5).all()
     ]
 
+    # Recent activities
+    recent_activities = (
+        db.query(ActivityLog)
+        .order_by(ActivityLog.created_at.desc())
+        .limit(10)
+        .all()
+    )
+
     total_applications = db.query(Application).count()
     return {
         "stats": {
             "candidates": db.query(Candidate).count(),
             "open_jobs": db.query(Job).filter(Job.status != "closed").count(),
+            "active_jobs": db.query(Job).filter(Job.status == "published").count(),
+            "total_candidates": db.query(Candidate).count(),
+            "shortlisted_candidates": stage_counts.get("Shortlisted", 0),
+            "rejected_candidates": stage_counts.get("Rejected", 0),
+            "hired_candidates": stage_counts.get("Hired", 0),
+            "interviews_scheduled": db.query(Interview).count(),
             "applications": total_applications,
             "interviews": db.query(Interview).count(),
             "shortlisted": stage_counts.get("Shortlisted", 0),
@@ -923,6 +960,28 @@ def get_dashboard_summary(db: Session = Depends(get_db)) -> Any:
         ],
         "recent_candidates": recent_candidates,
         "recent_jobs": recent_jobs,
+        "recent_activities": [
+            {
+                "id": act.id,
+                "action": act.action,
+                "details": act.details,
+                "author_name": act.user.full_name if act.user else "System",
+                "created_at": act.created_at,
+            }
+            for act in recent_activities
+        ],
+        "charts": {
+            "hiring_funnel": [
+                {"stage": stage, "count": stage_counts[stage]}
+                for stage in PIPELINE_STAGES
+                if stage_counts[stage] > 0
+            ],
+            "pipeline_distribution": [
+                {"stage": stage, "count": count}
+                for stage, count in stage_counts.items()
+                if count > 0
+            ],
+        }
     }
 
 
@@ -957,3 +1016,204 @@ def delete_notification(
     db.delete(notification)
     db.commit()
     return None
+
+
+def _interview_to_out(interview: Interview) -> InterviewOut:
+    interviewer_name = None
+    if interview.interviewer_user:
+        interviewer_name = interview.interviewer_user.full_name
+    created_by_name = None
+    if interview.created_by:
+        created_by_name = interview.created_by.full_name
+    candidate_name = interview.candidate.full_name if interview.candidate else None
+    job_title = interview.job.title if interview.job else None
+    return InterviewOut(
+        id=interview.id,
+        application_id=interview.application_id,
+        candidate_id=interview.candidate_id,
+        candidate_name=candidate_name,
+        job_id=interview.job_id,
+        job_title=job_title,
+        interview_type=interview.interview_type,
+        scheduled_at=interview.scheduled_at,
+        duration_minutes=interview.duration_minutes,
+        duration_minutes_str=interview.duration_minutes_str,
+        time_zone=interview.time_zone,
+        meeting_link=interview.meeting_link,
+        office_location=interview.office_location,
+        location=interview.location,
+        mode=interview.mode,
+        interviewer=interview.interviewer,
+        interviewer_user_id=interview.interviewer_user_id,
+        interviewer_name=interviewer_name,
+        created_by_id=interview.created_by_id,
+        created_by_name=created_by_name,
+        status=interview.status,
+        rescheduled_from_id=interview.rescheduled_from_id,
+        notes=interview.notes,
+        created_at=interview.created_at,
+        updated_at=interview.updated_at,
+    )
+
+
+@router.get("/interviews", response_model=List[InterviewOut])
+def list_interviews(
+    job_id: Optional[str] = None,
+    candidate_id: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    query = db.query(Interview)
+    if job_id:
+        query = query.filter(Interview.job_id == job_id)
+    if candidate_id:
+        query = query.filter(Interview.candidate_id == candidate_id)
+    if status:
+        query = query.filter(Interview.status == status)
+    interviews = query.order_by(Interview.scheduled_at.desc()).all()
+    return [_interview_to_out(interview) for interview in interviews]
+
+
+@router.get("/interviews/{interview_id}", response_model=InterviewOut)
+def get_interview(
+    interview_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    interview = db.get(Interview, interview_id)
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    return _interview_to_out(interview)
+
+
+@router.post("/interviews", response_model=InterviewOut, status_code=201)
+def create_interview(
+    payload: InterviewCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    # Verify candidate and job exist
+    candidate = db.get(Candidate, payload.candidate_id)
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    job = db.get(Job, payload.job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if payload.application_id:
+        application = db.get(Application, payload.application_id)
+        if not application:
+            raise HTTPException(status_code=404, detail="Application not found")
+
+    interview = Interview(
+        id=str(uuid.uuid4()),
+        application_id=payload.application_id,
+        candidate_id=payload.candidate_id,
+        job_id=payload.job_id,
+        interview_type=payload.interview_type,
+        scheduled_at=payload.scheduled_at,
+        duration_minutes=payload.duration_minutes,
+        duration_minutes_str=payload.duration_minutes_str,
+        time_zone=payload.time_zone,
+        meeting_link=payload.meeting_link,
+        office_location=payload.office_location,
+        location=payload.location,
+        mode=payload.mode,
+        interviewer=payload.interviewer,
+        interviewer_user_id=payload.interviewer_user_id,
+        notes=payload.notes,
+        created_by_id=current_user.id,
+    )
+    db.add(interview)
+    db.commit()
+    db.refresh(interview)
+    return _interview_to_out(interview)
+
+
+@router.put("/interviews/{interview_id}", response_model=InterviewOut)
+def update_interview(
+    interview_id: str,
+    payload: InterviewUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    interview = db.get(Interview, interview_id)
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(interview, field, value)
+    db.add(interview)
+    db.commit()
+    db.refresh(interview)
+    return _interview_to_out(interview)
+
+
+@router.post("/interviews/{interview_id}/reschedule", response_model=InterviewOut, status_code=201)
+def reschedule_interview(
+    interview_id: str,
+    payload: InterviewUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    original_interview = db.get(Interview, interview_id)
+    if not original_interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    # Mark original as rescheduled
+    original_interview.status = "Rescheduled"
+    db.add(original_interview)
+
+    # Create new interview
+    new_interview = Interview(
+        id=str(uuid.uuid4()),
+        application_id=original_interview.application_id,
+        candidate_id=original_interview.candidate_id,
+        job_id=original_interview.job_id,
+        interview_type=payload.interview_type or original_interview.interview_type,
+        scheduled_at=payload.scheduled_at or original_interview.scheduled_at,
+        duration_minutes=payload.duration_minutes or original_interview.duration_minutes,
+        duration_minutes_str=payload.duration_minutes_str or original_interview.duration_minutes_str,
+        time_zone=payload.time_zone or original_interview.time_zone,
+        meeting_link=payload.meeting_link or original_interview.meeting_link,
+        office_location=payload.office_location or original_interview.office_location,
+        location=payload.location or original_interview.location,
+        mode=payload.mode or original_interview.mode,
+        interviewer=payload.interviewer or original_interview.interviewer,
+        interviewer_user_id=payload.interviewer_user_id or original_interview.interviewer_user_id,
+        notes=payload.notes or original_interview.notes,
+        created_by_id=current_user.id,
+        rescheduled_from_id=interview_id,
+    )
+    db.add(new_interview)
+    db.commit()
+    db.refresh(new_interview)
+    return _interview_to_out(new_interview)
+
+
+@router.post("/interviews/{interview_id}/cancel", response_model=InterviewOut)
+def cancel_interview(
+    interview_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    interview = db.get(Interview, interview_id)
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    interview.status = "Cancelled"
+    db.add(interview)
+    db.commit()
+    db.refresh(interview)
+    return _interview_to_out(interview)
+
+
+@router.delete("/interviews/{interview_id}", status_code=204, response_class=Response, response_model=None)
+def delete_interview(
+    interview_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    interview = db.get(Interview, interview_id)
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    db.delete(interview)
+    db.commit()
+    return Response(status_code=204)

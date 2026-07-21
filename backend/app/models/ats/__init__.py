@@ -22,3 +22,4 @@ from .session import Session
 from .skill import Skill
 from .user_company import UserCompany
 from .application import Application
+from .chat import ChatSession, ChatMessage

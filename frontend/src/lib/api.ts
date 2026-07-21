@@ -38,6 +38,43 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return response.text() as unknown as T;
 }
 
+async function streamRequest(
+  path: string,
+  options: RequestInit = {}
+): Promise<ReadableStreamDefaultReader<Uint8Array>> {
+  const headers = new Headers(options.headers);
+  if (!(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const accessToken = getAccessToken();
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage = errorText || 'Request failed';
+    try {
+      const errorBody = JSON.parse(errorText) as { detail?: string };
+      errorMessage = errorBody.detail || errorMessage;
+    } catch {
+      // Keep the original response text when the server does not return JSON.
+    }
+    throw new Error(errorMessage);
+  }
+
+  if (!response.body) {
+    throw new Error('Response body is empty');
+  }
+
+  return response.body.getReader();
+}
+
 async function downloadBlob(path: string, fallbackFileName: string, errorMessage: string) {
   const headers = new Headers();
   const accessToken = getAccessToken();
@@ -460,10 +497,29 @@ export interface DashboardPipelineItem {
   progress: number;
 }
 
+export interface DashboardActivityItem {
+  id: string;
+  action: string;
+  details: string | null;
+  author_name: string | null;
+  created_at: string;
+}
+
+export interface ChartItem {
+  stage: string;
+  count: number;
+}
+
 export interface DashboardSummary {
   stats: {
     candidates: number;
     open_jobs: number;
+    active_jobs?: number;
+    total_candidates?: number;
+    shortlisted_candidates?: number;
+    rejected_candidates?: number;
+    hired_candidates?: number;
+    interviews_scheduled?: number;
     applications: number;
     interviews: number;
     shortlisted: number;
@@ -471,8 +527,188 @@ export interface DashboardSummary {
   pipeline: DashboardPipelineItem[];
   recent_candidates: DashboardSummaryItem[];
   recent_jobs: DashboardSummaryItem[];
+  recent_activities?: DashboardActivityItem[];
+  charts?: {
+    hiring_funnel: ChartItem[];
+    pipeline_distribution: ChartItem[];
+  };
 }
 
 export async function getDashboardSummary() {
   return request<DashboardSummary>('/api/v1/dashboard/summary');
+}
+
+export async function sendResumeChat(
+  candidateId: string,
+  jobId: string | null,
+  message: string
+): Promise<ReadableStreamDefaultReader<Uint8Array>> {
+  return streamRequest('/api/v2/ai/resume-chat', {
+    method: 'POST',
+    body: JSON.stringify({
+      candidate_id: candidateId,
+      job_id: jobId,
+      message,
+    }),
+  });
+}
+
+export interface Candidate {
+  id: string;
+  first_name: string;
+  last_name: string;
+  name: string | null;
+  email: string | null;
+  raw_email: string;
+  phone: string | null;
+  address: string | null;
+  linkedin: string | null;
+  github: string | null;
+  portfolio: string | null;
+  headline: string | null;
+  current_company: string | null;
+  current_designation: string | null;
+  total_experience: string | null;
+  relevant_experience: string | null;
+  current_package: string | null;
+  expected_package: string | null;
+  notice_period: string | null;
+  preferred_location: string | null;
+  employment_type: string | null;
+  summary: string | null;
+  resume_count: number;
+  application_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getCandidate(candidateId: string): Promise<Candidate> {
+  return request(`/api/v1/candidates/${encodeURIComponent(candidateId)}`);
+}
+
+export interface Interview {
+  id: string;
+  application_id?: string | null;
+  candidate_id: string;
+  job_id: string;
+  interview_type?: string | null;
+  scheduled_at: string;
+  duration_minutes?: number | null;
+  duration_minutes_str?: string | null;
+  time_zone?: string | null;
+  meeting_link?: string | null;
+  office_location?: string | null;
+  location?: string | null;
+  mode?: string | null;
+  interviewer?: string | null;
+  interviewer_user_id?: string | null;
+  interviewer_name?: string | null;
+  created_by_id?: string | null;
+  created_by_name?: string | null;
+  status: string;
+  rescheduled_from_id?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function listInterviews(
+  params?: { job_id?: string; candidate_id?: string; status?: string }
+): Promise<Interview[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.job_id) searchParams.set("job_id", params.job_id);
+  if (params?.candidate_id) searchParams.set("candidate_id", params.candidate_id);
+  if (params?.status) searchParams.set("status", params.status);
+  const queryString = searchParams.toString();
+  return request(`/api/v1/interviews${queryString ? `?${queryString}` : ""}`);
+}
+
+export async function getInterview(interviewId: string): Promise<Interview> {
+  return request(`/api/v1/interviews/${encodeURIComponent(interviewId)}`);
+}
+
+export async function createInterview(data: {
+  candidate_id: string;
+  job_id: string;
+  application_id?: string | null;
+  interview_type?: string | null;
+  scheduled_at: string;
+  duration_minutes?: number | null;
+  duration_minutes_str?: string | null;
+  time_zone?: string | null;
+  meeting_link?: string | null;
+  office_location?: string | null;
+  location?: string | null;
+  mode?: string | null;
+  interviewer?: string | null;
+  interviewer_user_id?: string | null;
+  notes?: string | null;
+}): Promise<Interview> {
+  return request("/api/v1/interviews", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateInterview(
+  interviewId: string,
+  data: Partial<{
+    interview_type?: string | null;
+    scheduled_at?: string;
+    duration_minutes?: number | null;
+    duration_minutes_str?: string | null;
+    time_zone?: string | null;
+    meeting_link?: string | null;
+    office_location?: string | null;
+    location?: string | null;
+    mode?: string | null;
+    interviewer?: string | null;
+    interviewer_user_id?: string | null;
+    status?: string;
+    notes?: string | null;
+  }>
+): Promise<Interview> {
+  return request(`/api/v1/interviews/${encodeURIComponent(interviewId)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function rescheduleInterview(
+  interviewId: string,
+  data: Partial<{
+    interview_type?: string | null;
+    scheduled_at?: string;
+    duration_minutes?: number | null;
+    duration_minutes_str?: string | null;
+    time_zone?: string | null;
+    meeting_link?: string | null;
+    office_location?: string | null;
+    location?: string | null;
+    mode?: string | null;
+    interviewer?: string | null;
+    interviewer_user_id?: string | null;
+    notes?: string | null;
+  }>
+): Promise<Interview> {
+  return request(`/api/v1/interviews/${encodeURIComponent(interviewId)}/reschedule`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function cancelInterview(interviewId: string): Promise<Interview> {
+  return request(`/api/v1/interviews/${encodeURIComponent(interviewId)}/cancel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function deleteInterview(interviewId: string): Promise<void> {
+  return request(`/api/v1/interviews/${encodeURIComponent(interviewId)}`, {
+    method: "DELETE",
+  });
 }

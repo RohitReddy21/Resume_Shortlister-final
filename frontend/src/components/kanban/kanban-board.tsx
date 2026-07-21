@@ -188,7 +188,7 @@ export function KanbanBoard({ jobId, jobTitle }: KanbanBoardProps) {
       </div>
 
       {/* Candidate detail drawer */}
-      <CandidateDrawer card={selectedCard} onClose={() => setSelectedCard(null)} />
+      <CandidateDrawer card={selectedCard} jobId={jobId} onClose={() => setSelectedCard(null)} />
     </>
   );
 }

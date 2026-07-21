@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Briefcase, CalendarDays, ChevronDown, Command, Loader2, Users } from 'lucide-react';
+import { AlertCircle, Briefcase, CalendarDays, ChevronDown, Command, Loader2, Users, CheckCircle2, XCircle, Target } from 'lucide-react';
 import { DashboardFrame } from '@/components/dashboard/dashboard-frame';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { ListCard } from '@/components/dashboard/list-card';
@@ -33,10 +33,14 @@ export default function DashboardPage() {
 
   const statData = useMemo(
     () => [
-      { label: 'Candidates', value: String(summary?.stats.candidates ?? 0), caption: 'Profiles in database', icon: <Users className="h-5 w-5" /> },
-      { label: 'Open roles', value: String(summary?.stats.open_jobs ?? 0), caption: 'Jobs not closed', icon: <Briefcase className="h-5 w-5" /> },
-      { label: 'Applications', value: String(summary?.stats.applications ?? 0), caption: 'Real pipeline records', icon: <Command className="h-5 w-5" /> },
-      { label: 'Shortlisted', value: String(summary?.stats.shortlisted ?? 0), caption: 'ATS score met threshold', icon: <CalendarDays className="h-5 w-5" /> },
+      { label: 'Total Candidates', value: String(summary?.stats.total_candidates ?? 0), caption: 'Total candidates', icon: <Users className="h-5 w-5" /> },
+      { label: 'Open Positions', value: String(summary?.stats.open_jobs ?? 0), caption: 'Jobs not closed', icon: <Briefcase className="h-5 w-5" /> },
+      { label: 'Active Jobs', value: String(summary?.stats.active_jobs ?? 0), caption: 'Published jobs', icon: <Target className="h-5 w-5" /> },
+      { label: 'Shortlisted', value: String(summary?.stats.shortlisted_candidates ?? 0), caption: 'Shortlisted', icon: <CheckCircle2 className="h-5 w-5" /> },
+      { label: 'Rejected', value: String(summary?.stats.rejected_candidates ?? 0), caption: 'Rejected candidates', icon: <XCircle className="h-5 w-5" /> },
+      { label: 'Hired', value: String(summary?.stats.hired_candidates ?? 0), caption: 'Hired candidates', icon: <CalendarDays className="h-5 w-5" /> },
+      { label: 'Applications', value: String(summary?.stats.applications ?? 0), caption: 'Applications', icon: <Command className="h-5 w-5" /> },
+      { label: 'Interviews', value: String(summary?.stats.interviews_scheduled ?? 0), caption: 'Scheduled interviews', icon: <CalendarDays className="h-5 w-5" /> },
     ],
     [summary],
   );
@@ -67,7 +71,7 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <ListCard title="Recent candidates" subtitle="Latest scored applications">
             <div className="space-y-4">
-              {summary?.recent_candidates.length ? (
+              {(summary?.recent_candidates ?? []).length ? (
                 summary.recent_candidates.map((candidate) => (
                   <ReusableListItem key={`${candidate.title}-${candidate.meta}`} {...candidate} />
                 ))
@@ -78,7 +82,7 @@ export default function DashboardPage() {
           </ListCard>
           <ListCard title="Hiring pipeline" subtitle="Live application stages">
             <div className="space-y-4">
-              {summary?.pipeline.length ? (
+              {(summary?.pipeline ?? []).length ? (
                 summary.pipeline.map((stage) => (
                   <PipelineCard key={stage.stage} {...stage} />
                 ))
@@ -93,12 +97,32 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <ListCard title="Recent jobs" subtitle="Open roles from the backend">
             <div className="space-y-4">
-              {summary?.recent_jobs.length ? (
+              {(summary?.recent_jobs ?? []).length ? (
                 summary.recent_jobs.map((job) => (
                   <ReusableListItem key={`${job.title}-${job.meta}`} {...job} />
                 ))
               ) : (
                 <EmptyState label="No jobs found. Create a job to start scoring resumes." />
+              )}
+            </div>
+          </ListCard>
+          <ListCard title="Recent activities" subtitle="Latest hiring actions">
+            <div className="space-y-4">
+              {(summary?.recent_activities ?? []).length ? (
+                summary.recent_activities.map((act) => (
+                  <div key={act.id} className="flex gap-3 p-3 rounded-2xl bg-slate-950 border border-slate-80">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-white">{act.action}</p>
+                        <span className="text-xs text-slate-500">{new Date(act.created_at).toLocaleDateString()}</span>
+                      </div>
+                      {act.details && <p className="text-sm text-slate-400 mt-1">{act.details}</p>}
+                      {act.author_name && <p className="text-xs text-slate-500 mt-1">by {act.author_name}</p>}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <EmptyState label="No recent activities yet." />
               )}
             </div>
           </ListCard>

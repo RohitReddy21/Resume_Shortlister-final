@@ -9,6 +9,7 @@ from app.api.routers import ats as ats_router
 from app.api.routers import jobs as jobs_router
 from app.api.routers import pipeline as pipeline_router
 from app.api.routers import reports as reports_router
+from app.api.routers import ai as ai_router
 from app.core.config import get_settings
 from app.core.database import init_db
 
@@ -57,6 +58,7 @@ app.include_router(jobs_router.router, prefix=settings.api_v1_prefix)
 app.include_router(ats_router.router, prefix=settings.api_v1_prefix)
 app.include_router(pipeline_router.router, prefix=settings.api_v1_prefix)
 app.include_router(reports_router.router, prefix=settings.api_v1_prefix)
+app.include_router(ai_router.router, prefix=settings.api_v2_prefix)
 
 init_db()
 

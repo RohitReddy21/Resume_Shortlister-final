@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Briefcase, FileText, FolderOpen, Sparkles, UserPlus } from 'lucide-react';
+import { Bell, Briefcase, Calendar, FileText, FolderOpen, Sparkles, UserPlus } from 'lucide-react';
 
 const navItems = [
   { label: 'Overview', icon: Sparkles, href: '/dashboard' },
@@ -10,6 +10,7 @@ const navItems = [
   { label: 'Resume data', icon: FileText, href: '/dashboard/resume-data' },
   { label: 'Jobs', icon: Briefcase, href: '/dashboard/jobs' },
   { label: 'Pipeline', icon: FolderOpen, href: '/dashboard/pipeline' },
+  { label: 'Interviews', icon: Calendar, href: '/dashboard/interviews' },
   { label: 'Notifications', icon: Bell, href: '/dashboard/notifications' },
 ];
 
