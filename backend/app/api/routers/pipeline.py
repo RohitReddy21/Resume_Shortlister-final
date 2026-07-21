@@ -732,11 +732,6 @@ def move_application_stage(
             job_id=app.job_id,
         )
 
-        if new_stage == "Rejected":
-            result = _remove_rejected_application_data(db, app)
-            db.commit()
-            return result
-
         app.status = new_stage
         if payload.pipeline_order is not None:
             app.pipeline_order = payload.pipeline_order
